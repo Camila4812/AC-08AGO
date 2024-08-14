@@ -64,25 +64,26 @@
         }
 
         // Funciones para la rotación
-        function rotarVector(Vo, Vr) {
+        function rotarVector(Vo, Vr, center) {
+            const [cx, cy] = center; // Centro de rotación
             const [x, y] = Vo;
-            const {radio, angulo} = rectangularesAPolares(x, y);
-            const nuevoAngulo = angulo + (Vr * (180 / Math.PI));
-            const {x: xRotado, y: yRotado} = polaresARectangulares(radio, nuevoAngulo);
-            return [xRotado, yRotado];
-        }
 
-        function polaresARectangulares(radio, angulo) {
-            const anguloRad = angulo * (Math.PI / 180);
-            const x = radio * Math.cos(anguloRad);
-            const y = radio * Math.sin(anguloRad);
-            return {x: x, y: y};
-        }
+            // Trasladar el punto para que el centro de rotación sea el origen
+            const xTrasladado = x - cx;
+            const yTrasladado = y - cy;
 
-        function rectangularesAPolares(x, y) {
-            const radio = Math.sqrt(x * x + y * y);
-            const angulo = Math.atan2(y, x) * (180 / Math.PI);
-            return {radio: radio, angulo: angulo};
+            // Convertir el ángulo a radianes
+            const anguloRad = Vr * (Math.PI / 180);
+
+            // Rotar el punto alrededor del origen
+            const xRotado = xTrasladado * Math.cos(anguloRad) - yTrasladado * Math.sin(anguloRad);
+            const yRotado = xTrasladado * Math.sin(anguloRad) + yTrasladado * Math.cos(anguloRad);
+
+            // Trasladar el punto de vuelta
+            const xFinal = xRotado + cx;
+            const yFinal = yRotado + cy;
+
+            return [xFinal, yFinal];
         }
 
         // Manejar la selección de formas
@@ -95,9 +96,9 @@
             scaleFactor = parseFloat(e.target.value);
         });
 
-        // Manejar la rotación
+        // Actualizar el valor de rotación cuando el input cambie
         rotationInput.addEventListener('input', (e) => {
-            rotation = parseFloat(e.target.value) * (Math.PI / 180); // Convertir grados a radianes
+            rotation = parseFloat(e.target.value);
         });
 
         // Manejar el clic en el canvas para dibujar formas
@@ -123,8 +124,10 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             shapes.forEach((shape) => {
                 ctx.save();
+
+                // Mover el contexto al punto de la figura antes de aplicar la rotación
                 ctx.translate(shape.x, shape.y);
-                ctx.rotate(shape.rotation);
+                ctx.rotate(shape.rotation * Math.PI / 180);
 
                 ctx.beginPath();
                 if (shape.type === 'rectangle') {
@@ -144,7 +147,7 @@
         // Manejar el botón de aplicar rotación
         rotateButton.addEventListener('click', () => {
             shapes = shapes.map(shape => {
-                shape.rotation = rotation;
+                shape.rotation += rotation;
                 return shape;
             });
             drawShapes();
