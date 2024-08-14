@@ -35,6 +35,9 @@
             <option value="1.5">150%</option>
             <option value="2">200%</option>
         </select>
+        <label for="rotation">Rotación (grados):</label>
+        <input type="number" id="rotation" value="0">
+        <button id="rotate">Aplicar Rotación</button>
     </div>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script>
@@ -44,10 +47,43 @@
         const shapeSelect = document.getElementById('shape');
         const clearButton = document.getElementById('clear');
         const scaleFactorSelect = document.getElementById('scaleFactor');
+        const rotationInput = document.getElementById('rotation');
+        const rotateButton = document.getElementById('rotate');
 
         let currentShape = 'rectangle';
         let scaleFactor = 1;
+        let rotation = 0;
         let shapes = [];
+
+        // Función de escalado
+        function Escalado(tupla1, tupla2) {
+            if (tupla1.length !== tupla2.length) {
+                throw new Error('Las tuplas deben tener la misma longitud');
+            }
+            return tupla1.map((valor, indice) => valor * tupla2[indice]);
+        }
+
+        // Funciones para la rotación
+        function rotarVector(Vo, Vr) {
+            const [x, y] = Vo;
+            const {radio, angulo} = rectangularesAPolares(x, y);
+            const nuevoAngulo = angulo + (Vr * (180 / Math.PI));
+            const {x: xRotado, y: yRotado} = polaresARectangulares(radio, nuevoAngulo);
+            return [xRotado, yRotado];
+        }
+
+        function polaresARectangulares(radio, angulo) {
+            const anguloRad = angulo * (Math.PI / 180);
+            const x = radio * Math.cos(anguloRad);
+            const y = radio * Math.sin(anguloRad);
+            return {x: x, y: y};
+        }
+
+        function rectangularesAPolares(x, y) {
+            const radio = Math.sqrt(x * x + y * y);
+            const angulo = Math.atan2(y, x) * (180 / Math.PI);
+            return {radio: radio, angulo: angulo};
+        }
 
         // Manejar la selección de formas
         shapeSelect.addEventListener('change', (e) => {
@@ -59,6 +95,11 @@
             scaleFactor = parseFloat(e.target.value);
         });
 
+        // Manejar la rotación
+        rotationInput.addEventListener('input', (e) => {
+            rotation = parseFloat(e.target.value) * (Math.PI / 180); // Convertir grados a radianes
+        });
+
         // Manejar el clic en el canvas para dibujar formas
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
@@ -67,9 +108,11 @@
 
             let shape;
             if (currentShape === 'rectangle') {
-                shape = { type: 'rectangle', x, y, width: 100 * scaleFactor, height: 50 * scaleFactor };
+                const [width, height] = Escalado([100, 50], [scaleFactor, scaleFactor]);
+                shape = { type: 'rectangle', x, y, width, height, rotation: 0 };
             } else if (currentShape === 'circle') {
-                shape = { type: 'circle', x, y, radius: 50 * scaleFactor };
+                const [radius] = Escalado([50], [scaleFactor]);
+                shape = { type: 'circle', x, y, radius, rotation: 0 };
             }
             shapes.push(shape);
             drawShapes();
@@ -79,18 +122,33 @@
         function drawShapes() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             shapes.forEach((shape) => {
+                ctx.save();
+                ctx.translate(shape.x, shape.y);
+                ctx.rotate(shape.rotation);
+
                 ctx.beginPath();
                 if (shape.type === 'rectangle') {
-                    ctx.rect(shape.x, shape.y, shape.width, shape.height);
+                    ctx.rect(-shape.width / 2, -shape.height / 2, shape.width, shape.height);
                 } else if (shape.type === 'circle') {
-                    ctx.arc(shape.x, shape.y, shape.radius, 0, Math.PI * 2);
+                    ctx.arc(0, 0, shape.radius, 0, Math.PI * 2);
                 }
                 ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
                 ctx.fill();
                 ctx.strokeStyle = 'black';
                 ctx.stroke();
+
+                ctx.restore();
             });
         }
+
+        // Manejar el botón de aplicar rotación
+        rotateButton.addEventListener('click', () => {
+            shapes = shapes.map(shape => {
+                shape.rotation = rotation;
+                return shape;
+            });
+            drawShapes();
+        });
 
         // Manejar el botón de limpiar
         clearButton.addEventListener('click', () => {
@@ -100,4 +158,5 @@
     </script>
 </body>
 </html>
+
 
