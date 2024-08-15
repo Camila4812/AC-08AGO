@@ -52,8 +52,9 @@
 
         let currentShape = 'rectangle';
         let scaleFactor = 1;
-        let rotation = 0;
         let shapes = [];
+        let draggingShape = null; // Figura que se está arrastrando
+        let offsetX, offsetY;
 
         // Función de escalado
         function Escalado(tupla1, tupla2) {
@@ -63,27 +64,29 @@
             return tupla1.map((valor, indice) => valor * tupla2[indice]);
         }
 
-        // Funciones para la rotación
-        function rotarVector(Vo, Vr, center) {
-            const [cx, cy] = center; // Centro de rotación
-            const [x, y] = Vo;
+        // Función de traslación
+        function Traslacion(tupla1, tupla2) {
+            if (tupla1.length !== tupla2.length) {
+                throw new Error('Las tuplas deben tener la misma longitud');
+            }
+            return tupla1.map((valor, indice) => valor + tupla2[indice]);
+        }
 
-            // Trasladar el punto para que el centro de rotación sea el origen
-            const xTrasladado = x - cx;
-            const yTrasladado = y - cy;
+        // Función para verificar si el punto está dentro de un rectángulo
+        function isPointInRect(x, y, rect) {
+            return (
+                x >= rect.x - rect.width / 2 &&
+                x <= rect.x + rect.width / 2 &&
+                y >= rect.y - rect.height / 2 &&
+                y <= rect.y + rect.height / 2
+            );
+        }
 
-            // Convertir el ángulo a radianes
-            const anguloRad = Vr * (Math.PI / 180);
-
-            // Rotar el punto alrededor del origen
-            const xRotado = xTrasladado * Math.cos(anguloRad) - yTrasladado * Math.sin(anguloRad);
-            const yRotado = xTrasladado * Math.sin(anguloRad) + yTrasladado * Math.cos(anguloRad);
-
-            // Trasladar el punto de vuelta
-            const xFinal = xRotado + cx;
-            const yFinal = yRotado + cy;
-
-            return [xFinal, yFinal];
+        // Función para verificar si el punto está dentro de un círculo
+        function isPointInCircle(x, y, circle) {
+            const dx = x - circle.x;
+            const dy = y - circle.y;
+            return Math.sqrt(dx * dx + dy * dy) <= circle.radius;
         }
 
         // Manejar la selección de formas
@@ -96,17 +99,26 @@
             scaleFactor = parseFloat(e.target.value);
         });
 
-        // Actualizar el valor de rotación cuando el input cambie
-        rotationInput.addEventListener('input', (e) => {
-            rotation = parseFloat(e.target.value);
-        });
-
-        // Manejar el clic en el canvas para dibujar formas
-        canvas.addEventListener('click', (e) => {
+        // Manejar el clic en el canvas para crear o seleccionar figuras
+        canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
+            // Buscar si el clic se realizó sobre alguna figura existente
+            for (let shape of shapes) {
+                if (
+                    (shape.type === 'rectangle' && isPointInRect(x, y, shape)) ||
+                    (shape.type === 'circle' && isPointInCircle(x, y, shape))
+                ) {
+                    draggingShape = shape;
+                    offsetX = x - shape.x;
+                    offsetY = y - shape.y;
+                    return;
+                }
+            }
+
+            // Si no se seleccionó ninguna figura existente, crear una nueva
             let shape;
             if (currentShape === 'rectangle') {
                 const [width, height] = Escalado([100, 50], [scaleFactor, scaleFactor]);
@@ -119,15 +131,33 @@
             drawShapes();
         });
 
-        // Función para dibujar todas las formas en el canvas
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingShape) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Usar la función de traslación para mover la figura
+                const [newX, newY] = Traslacion([draggingShape.x, draggingShape.y], [x - draggingShape.x - offsetX, y - draggingShape.y - offsetY]);
+
+                draggingShape.x = newX;
+                draggingShape.y = newY;
+
+                drawShapes();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingShape = null; // Soltar la figura
+        });
+
         function drawShapes() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             shapes.forEach((shape) => {
                 ctx.save();
 
-                // Mover el contexto al punto de la figura antes de aplicar la rotación
                 ctx.translate(shape.x, shape.y);
-                ctx.rotate(shape.rotation * Math.PI / 180);
+                ctx.rotate((shape.rotation * Math.PI) / 180);
 
                 ctx.beginPath();
                 if (shape.type === 'rectangle') {
@@ -147,7 +177,7 @@
         // Manejar el botón de aplicar rotación
         rotateButton.addEventListener('click', () => {
             shapes = shapes.map(shape => {
-                shape.rotation += rotation;
+                shape.rotation += parseFloat(rotationInput.value);
                 return shape;
             });
             drawShapes();
